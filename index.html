@@ -1,7 +1,63 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Physics Word Quizzes</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f7f6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            text-align: center;
+        }
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 5px;
+            font-size: 28px;
+        }
+        .subtitle {
+            color: #7f8c8d;
+            font-style: italic;
+            margin-bottom: 35px;
+        }
+        .quiz-links {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            max-width: 400px;
+            margin: 0 auto;
+        }
+        .quiz-links a {
+            display: block;
+            padding: 18px 20px;
+            background-color: #3498db;
+            color: #fff;
+            text-decoration: none;
+            border-radius: 6px;
+            font-size: 18px;
+            font-weight: 600;
+            transition: background-color 0.3s;
+        }
+        .quiz-links a:hover {
+            background-color: #2c81ba;
+        }
+    </style>
+</head>
 <body>
-<h1>Hello World</h1>
-<p>I'm hosted with GitHub Pages.</p>
+
+    <h1>Physics Word Quizzes</h1>
+    <p class="subtitle">Pick a quiz and guess the most common words in physics paper titles.</p>
+
+    <div class="quiz-links">
+        <a href="quiz-arxiv-optics.html">arXiv physics.optics titles</a>
+        <a href="quiz-nature-photonics.html">Nature Photonics titles</a>
+    </div>
+
+    <p style="margin-top: 30px;"><a href="methodology.html" style="color: #7f8c8d; font-size: 14px;">How are these counted? &rarr; Methodology</a></p>
+
 </body>
 </html>

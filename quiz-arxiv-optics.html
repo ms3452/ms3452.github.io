@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>arXiv physics.optics Word Quiz</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f7f6;
+            color: #333;
+            max-width: 700px;
+            margin: 0 auto;
+            padding: 20px;
+            text-align: center;
+        }
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 5px;
+            font-size: 28px;
+        }
+        .subtitle {
+            color: #7f8c8d;
+            font-style: italic;
+            margin-bottom: 15px;
+        }
+        .meta-link {
+            display: block;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+        .input-container {
+            margin-bottom: 30px;
+            position: sticky;
+            top: 0;
+            background-color: #f4f7f6;
+            padding: 10px 0;
+            z-index: 10;
+        }
+        input[type="text"] {
+            padding: 12px 20px;
+            font-size: 18px;
+            width: 80%;
+            max-width: 300px;
+            border: 2px solid #bdc3c7;
+            border-radius: 4px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+        input[type="text"]:focus {
+            border-color: #3498db;
+        }
+        .status-bar {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-top: 15px;
+        }
+        .score, .timer {
+            font-size: 20px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        .timer.low {
+            color: #e74c3c;
+        }
+        .win-message, .timeup-message {
+            display: none;
+            font-size: 22px;
+            font-weight: bold;
+            margin-top: 15px;
+            animation: pop 0.5s ease-out;
+        }
+        .win-message { color: #27ae60; }
+        .timeup-message { color: #e74c3c; }
+        .quiz-list {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-top: 20px;
+            max-width: 620px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .word-row {
+            display: flex;
+            background-color: #e2e8f0;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+        .row-number {
+            background-color: #cbd5e1;
+            color: #475569;
+            padding: 12px 15px;
+            min-width: 30px;
+            text-align: center;
+            border-right: 1px solid #cbd5e1;
+        }
+        .row-text {
+            flex-grow: 1;
+            padding: 12px;
+            text-align: left;
+            padding-left: 20px;
+            color: transparent; /* Hides the word text initially */
+            user-select: none;
+        }
+        /* When a word is correctly guessed */
+        .word-row.revealed {
+            background-color: #2ecc71;
+            border-color: #27ae60;
+        }
+        .word-row.revealed .row-number {
+            background-color: #27ae60;
+            color: #fff;
+            border-color: #27ae60;
+        }
+        .word-row.revealed .row-text {
+            color: #fff; /* Reveals the word text */
+        }
+        /* Answers the user missed, filled in when time runs out */
+        .word-row.timed-out {
+            background-color: #e67e22;
+            border-color: #d35400;
+        }
+        .word-row.timed-out .row-number {
+            background-color: #d35400;
+            color: #fff;
+            border-color: #d35400;
+        }
+        .word-row.timed-out .row-text {
+            color: #fff;
+        }
+        .answer-image {
+            display: none;
+            margin: 25px auto 0;
+            max-width: 100%;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+        }
+        @keyframes pop {
+            0% { transform: scale(0.8); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>20 Most common words in arXiv physics.optics titles</h1>
+    <p class="subtitle">Based on the most common words as of 2025. Type your guesses below — correct answers will reveal themselves on the list!</p>
+    <a class="meta-link" href="methodology.html">How are these counted? &rarr; Methodology</a>
+
+    <div class="input-container">
+        <input type="text" id="guess-input" placeholder="Type a word..." autofocus>
+        <div class="status-bar">
+            <div class="score">Score: <span id="current-score">0</span> / 20</div>
+            <div class="timer" id="timer">3:00</div>
+        </div>
+        <div class="win-message" id="win-box">🎉 Congratulations! You found them all! 🎉</div>
+        <div class="timeup-message" id="timeup-box">⏰ Time's up! The missing answers are shown in orange.</div>
+    </div>
+
+    <div class="quiz-list" id="quiz-list">
+        <!-- Rows will be dynamically generated here -->
+    </div>
+
+    <img class="answer-image" id="answer-image" src="arxiv-optics-answers.png" alt="arXiv physics.optics answers">
+
+    <script>
+        // The list of target words
+        const quizWords = [
+            'photonic', 'quantum', 'laser', 'imaging', 'nonlinear',
+            'state', 'metasurface', 'phase', 'crystal', 'integrated',
+            'cavity', 'fiber', 'waveguide', 'topological', 'design',
+            'scattering', 'network', 'spectroscopy', 'frequency', 'field'
+        ];
+
+        const guessedWords = new Set();
+
+        const inputField = document.getElementById('guess-input');
+        const scoreDisplay = document.getElementById('current-score');
+        const listContainer = document.getElementById('quiz-list');
+        const winBox = document.getElementById('win-box');
+        const timeUpBox = document.getElementById('timeup-box');
+        const timerDisplay = document.getElementById('timer');
+        const answerImage = document.getElementById('answer-image');
+
+        // 1. Initialize the vertical rows
+        quizWords.forEach((word, index) => {
+            const row = document.createElement('div');
+            row.classList.add('word-row');
+            row.id = `word-${word}`;
+
+            const numSpan = document.createElement('div');
+            numSpan.classList.add('row-number');
+            numSpan.textContent = index + 1;
+
+            const textSpan = document.createElement('div');
+            textSpan.classList.add('row-text');
+            textSpan.textContent = word;
+
+            row.appendChild(numSpan);
+            row.appendChild(textSpan);
+            listContainer.appendChild(row);
+        });
+
+        // Spelling-tolerant matching: ignore case, spaces, hyphens and a trailing
+        // plural "s", so "photonics" / "Photonic" / "photonic" all match "photonic".
+        function normalize(s) {
+            return s.toLowerCase().trim().replace(/[\s-]+/g, '').replace(/s$/, '');
+        }
+        const lookup = {};
+        quizWords.forEach(word => { lookup[normalize(word)] = word; });
+
+        // 2. Countdown timer (3 minutes, starts on first keystroke)
+        let timeLeft = 180;
+        let timerStarted = false;
+        let timerInterval = null;
+
+        function updateTimerDisplay() {
+            const minutes = Math.floor(timeLeft / 60);
+            const seconds = String(timeLeft % 60).padStart(2, '0');
+            timerDisplay.textContent = `${minutes}:${seconds}`;
+            timerDisplay.classList.toggle('low', timeLeft <= 30);
+        }
+
+        function startTimer() {
+            if (timerStarted) return;
+            timerStarted = true;
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                updateTimerDisplay();
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    endQuiz();
+                }
+            }, 1000);
+        }
+
+        // When the timer ends: fill in any missed words and show the answer image.
+        function endQuiz() {
+            inputField.disabled = true;
+            timeUpBox.style.display = 'block';
+            answerImage.style.display = 'block';
+            quizWords.forEach(word => {
+                if (!guessedWords.has(word)) {
+                    document.getElementById(`word-${word}`).classList.add('timed-out');
+                }
+            });
+        }
+
+        // 3. Event listener for typing inputs
+        inputField.addEventListener('input', (e) => {
+            startTimer();
+            const matchedWord = lookup[normalize(e.target.value)];
+
+            if (matchedWord && !guessedWords.has(matchedWord)) {
+                guessedWords.add(matchedWord);
+
+                // Target the specific row block and trigger CSS reveal styles
+                const targetedRow = document.getElementById(`word-${matchedWord}`);
+                targetedRow.classList.add('revealed');
+
+                inputField.value = '';
+                scoreDisplay.textContent = guessedWords.size;
+
+                if (guessedWords.size === quizWords.length) {
+                    clearInterval(timerInterval);
+                    inputField.disabled = true;
+                    winBox.style.display = 'block';
+                }
+            }
+        });
+    </script>
+</body>
+</html>
