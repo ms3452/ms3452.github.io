@@ -24,10 +24,60 @@
             font-style: italic;
             margin-bottom: 15px;
         }
-        .meta-link {
-            display: block;
-            margin-bottom: 20px;
+        .back {
+            display: inline-block;
+            margin-bottom: 12px;
+            text-decoration: none;
+            font-weight: 600;
+            color: #3498db;
+        }
+        .methodology {
+            max-width: 620px;
+            margin: 0 auto 25px;
+            text-align: left;
+            background-color: #fff;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+        }
+        .methodology summary {
+            cursor: pointer;
+            padding: 12px 16px;
+            font-weight: 600;
+            color: #2c3e50;
+            text-align: center;
+        }
+        .methodology summary:hover {
+            color: #3498db;
+        }
+        .methodology-body {
+            padding: 0 18px 12px;
             font-size: 14px;
+            line-height: 1.6;
+            color: #444;
+        }
+        .methodology-body h3 {
+            color: #2c3e50;
+            font-size: 16px;
+            margin: 16px 0 6px;
+        }
+        .methodology-body code {
+            background-color: #e2e8f0;
+            padding: 1px 5px;
+            border-radius: 3px;
+            font-size: 0.92em;
+        }
+        .methodology-body ul, .methodology-body ol {
+            padding-left: 20px;
+        }
+        .methodology-body li {
+            margin-bottom: 6px;
+        }
+        .methodology-body .note {
+            background-color: #fff8e1;
+            border-left: 4px solid #f1c40f;
+            padding: 8px 12px;
+            border-radius: 4px;
+            margin: 12px 0;
         }
         .input-container {
             margin-bottom: 30px;
@@ -149,9 +199,43 @@
 </head>
 <body>
 
+    <a class="back" href="index.html">&larr; Back to all quizzes</a>
     <h1>20 Most common words in arXiv physics.optics titles</h1>
     <p class="subtitle">Based on the most common words as of 2025. Type your guesses below — correct answers will reveal themselves on the list!</p>
-    <a class="meta-link" href="methodology.html">How are these counted? &rarr; Methodology</a>
+    <details class="methodology">
+        <summary>How are these "most common words" counted?</summary>
+        <div class="methodology-body">
+            <h3>1. The title data</h3>
+            <ul>
+                <li><strong>arXiv physics.optics</strong> — every arXiv record whose <code>categories</code> field contains <code>physics.optics</code> (primary or cross-listed), from the Kaggle metadata dump (~56,600 titles).</li>
+                <li><strong>Nature Photonics</strong> — every article pulled from the Crossref API by ISSN <code>1749-4893</code>, 2007–2026 (~5,100 titles).</li>
+            </ul>
+            <div class="note">⚠️ The data was taken mid-2026, so <strong>2026 is partial</strong>. Only years through <strong>2025</strong> are treated as complete, so the counts reflect titles <strong>as of 2025</strong>.</div>
+
+            <h3>2. Turning a title into words</h3>
+            <ol>
+                <li><strong>Tokenize</strong> — lowercase; keep letters and inner hyphens, so <code>single-photon</code> stays one word.</li>
+                <li><strong>Lemmatize</strong> — a conservative singularizer maps plurals to one word (<code>lasers</code>&rarr;<code>laser</code>), with a protected set (<code>physics</code>, <code>optics</code>, …) and irregulars (<code>indices</code>&rarr;<code>index</code>).</li>
+                <li><strong>Drop stopwords</strong> — generic English and prose filler (<code>using</code>, <code>novel</code>, <code>study</code>, …) are removed.</li>
+                <li><strong>n-grams</strong> — adjacent uni-, bi-, and tri-grams are formed so phrases (<code>frequency comb</code>, <code>perovskite solar cell</code>) count as a unit.</li>
+            </ol>
+
+            <h3>3. Merging equivalent phrases</h3>
+            <p>Each n-gram is reduced to a <strong>canonical key</strong> — the sorted set of its words — so counting ignores word order and hyphenation (<code>machine-learning</code> = <code>machine learning</code>; <code>photonic integrated</code> = <code>integrated photonic</code>). A few uninformative words (<code>optical</code>, <code>light</code>, …) are excluded.</p>
+
+            <h3>4. Counting</h3>
+            <ul>
+                <li><strong>Document frequency</strong> — each topic is counted <strong>once per title</strong> (presence, not raw frequency).</li>
+                <li>The quiz lists the <strong>20 most frequent topics</strong> in each dataset, over titles through 2025.</li>
+            </ul>
+
+            <h3>5. Known limitations</h3>
+            <ul>
+                <li>The tokenizer is letters-only, so numerals and non-ASCII are stripped (<code>MoS₂</code>&rarr;<code>mos</code>, <code>moiré</code>&rarr;<code>moir</code>).</li>
+                <li>Lemmatization is rule-based, so a few forms split or merge imperfectly.</li>
+            </ul>
+        </div>
+    </details>
 
     <div class="input-container">
         <input type="text" id="guess-input" placeholder="Type a word..." autofocus>
@@ -215,6 +299,41 @@
         const lookup = {};
         quizWords.forEach(word => { lookup[normalize(word)] = word; });
 
+        // Levenshtein edit distance, so small typos still count (e.g. "fotonic"
+        // -> "photonic"). The allowed distance scales with the word's length.
+        function editDistance(a, b) {
+            const m = a.length, n = b.length;
+            const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+            for (let i = 0; i <= m; i++) dp[i][0] = i;
+            for (let j = 0; j <= n; j++) dp[0][j] = j;
+            for (let i = 1; i <= m; i++) {
+                for (let j = 1; j <= n; j++) {
+                    const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+                    dp[i][j] = Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + cost);
+                }
+            }
+            return dp[m][n];
+        }
+
+        // Find the target a guess best matches: exact (normalized) first, otherwise
+        // the closest target within a length-scaled edit-distance budget.
+        function findMatch(raw) {
+            const guess = normalize(raw);
+            if (!guess) return null;
+            if (lookup[guess]) return lookup[guess];
+            let best = null, bestDist = Infinity;
+            for (const key in lookup) {
+                const budget = Math.min(2, Math.floor(key.length / 4));
+                if (budget < 1) continue;
+                const d = editDistance(guess, key);
+                if (d <= budget && d < bestDist) {
+                    bestDist = d;
+                    best = lookup[key];
+                }
+            }
+            return best;
+        }
+
         // 2. Countdown timer (3 minutes, starts on first keystroke)
         let timeLeft = 180;
         let timerStarted = false;
@@ -255,7 +374,7 @@
         // 3. Event listener for typing inputs
         inputField.addEventListener('input', (e) => {
             startTimer();
-            const matchedWord = lookup[normalize(e.target.value)];
+            const matchedWord = findMatch(e.target.value);
 
             if (matchedWord && !guessedWords.has(matchedWord)) {
                 guessedWords.add(matchedWord);
