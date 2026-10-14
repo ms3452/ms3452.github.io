@@ -1,62 +1,216 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-backend="static">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Physics Word Quizzes</title>
-    <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f4f7f6;
-            color: #333;
-            max-width: 600px;
-            margin: 0 auto;
-            padding: 20px;
-            text-align: center;
-        }
-        h1 {
-            color: #2c3e50;
-            margin-bottom: 5px;
-            font-size: 28px;
-        }
-        .subtitle {
-            color: #7f8c8d;
-            font-style: italic;
-            margin-bottom: 35px;
-        }
-        .quiz-links {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-            max-width: 400px;
-            margin: 0 auto;
-        }
-        .quiz-links a {
-            display: block;
-            padding: 18px 20px;
-            background-color: #3498db;
-            color: #fff;
-            text-decoration: none;
-            border-radius: 6px;
-            font-size: 18px;
-            font-weight: 600;
-            transition: background-color 0.3s;
-        }
-        .quiz-links a:hover {
-            background-color: #2c81ba;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>2D Waveguide Interactive Studio | Optical Beam Propagation</title>
+  <link rel="stylesheet" href="css/style.css?v=4">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='5' fill='%2300c6ff'/%3E%3Cpath d='M2 12h5l3-9 4 18 3-9h5' fill='none' stroke='white' stroke-width='2.2'/%3E%3C/svg%3E">
+  <!-- Google Fonts for sleek scientific UI -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 </head>
 <body>
+  <div class="app-container">
+    <!-- Top Header & Toolbar -->
+    <header class="top-bar">
+      <div class="brand">
+        <div class="logo-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <path d="M2 12h5l3-9 4 18 3-9h5"/>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <span class="brand-title">2D WAVEGUIDE STUDIO</span>
+          <span class="brand-subtitle">Interactive Paraxial Beam Propagation (BPM)</span>
+        </div>
+      </div>
 
-    <h1>Physics Word Quizzes</h1>
-    <p class="subtitle">Pick a quiz and guess the most common words in physics paper titles.</p>
+      <!-- Demo Selector -->
+      <div class="toolbar-group">
+        <label for="demo-select" class="group-label">DEMO:</label>
+        <select id="demo-select" class="select-input">
+          <optgroup label="Waveguide devices">
+            <option value="y_splitter" selected>Y-Branch Splitter (50/50)</option>
+            <option value="straight">Straight Waveguide</option>
+            <option value="mzi">Mach-Zehnder Interferometer</option>
+            <option value="multimode">Multimode Waveguide</option>
+            <option value="empty">Free Diffraction (Slab)</option>
+          </optgroup>
+          <optgroup label="Trainable (inverse design)">
+            <option value="mnist">MNIST Digit Classifier</option>
+            <option value="perm4">4×4 Permutation</option>
+            <option value="hg4">4×4 Hermite-Gauss Demultiplexer</option>
+            <option value="perm8">8×8 Permutation</option>
+            <option value="matmul4">4×4 Matrix Multiplication</option>
+            <option value="custom">Custom Routing (drag to design)</option>
+          </optgroup>
+        </select>
+      </div>
 
-    <div class="quiz-links">
-        <a href="quiz-arxiv-optics.html">arXiv physics.optics titles</a>
-        <a href="quiz-nature-photonics.html">Nature Photonics titles</a>
-    </div>
+      <!-- Colormap Selector -->
+      <div class="toolbar-group">
+        <label for="colormap-select" class="group-label">PALETTE:</label>
+        <select id="colormap-select" class="select-input">
+          <option value="cyan_gold" selected>Electric Cyan / Gold</option>
+          <option value="inferno">Inferno (Thermal)</option>
+          <option value="viridis">Viridis (Classic)</option>
+          <option value="green_laser">Green Laser (532 nm)</option>
+          <option value="green_index_red_light">Black/Green Index, Red Light</option>
+          <option value="green_index_thermal_light">Black/Green Index, Infrared (Thermal) Light</option>
+        </select>
+      </div>
 
+      <div class="toolbar-actions">
+        <button id="btn-pulse" class="btn-action" title="Toggle between pulsed and continuous-wave light">
+          <span id="btn-pulse-label">Light: Pulsed</span>
+        </button>
+        <button id="btn-fullscreen" class="btn-action icon-btn" title="Toggle Fullscreen Kiosk Mode">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+          </svg>
+        </button>
+      </div>
+    </header>
 
+    <!-- Main Workspace: device view + one information panel -->
+    <main class="main-layout">
+      <section class="center-viewport">
+        <div class="viewport-header">
+          <div class="viewport-info">
+            <span id="dim-lz" class="dim-tag">Length Lz: 5000 μm (→)</span>
+            <span id="dim-lx" class="dim-tag">Width Lx: 600 μm (↕)</span>
+          </div>
+          <div class="viewport-info">
+            <span id="pulse-caption" class="dim-tag"></span>
+          </div>
+        </div>
+
+        <!-- 1D facet profiles share the vertical (x) axis of the 2D display -->
+        <div class="viewport-body">
+          <div class="facet-strip facet-in">
+            <canvas id="canvas-input-plot"></canvas>
+          </div>
+          <div id="canvas-wrapper" class="canvas-wrapper">
+            <canvas id="gl-canvas"></canvas>
+            <!-- Detector bins at the output facet and the fixed/trainable region marks -->
+            <canvas id="facet-overlay"></canvas>
+            <div class="hud-overlay">
+              <div id="hud-coords">x: 0 μm, z: 0 μm</div>
+              <div id="hud-fps">FPS: 60</div>
+            </div>
+          </div>
+          <div class="facet-strip facet-out">
+            <canvas id="canvas-output-plot"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <aside class="side-panel right-panel">
+        <!-- What this demo is and which inputs it cycles through -->
+        <div class="metric-card">
+          <div id="demo-title" class="demo-title">Demo</div>
+          <div id="demo-description" class="training-desc"></div>
+          <div class="inputs-header">
+            <span class="control-section-title">INPUTS</span>
+            <button id="btn-auto-cycle" class="routing-n active" title="Cycle through all inputs, 4 pulses each">Auto-cycle</button>
+          </div>
+          <ol id="input-list" class="task-input-list"></ol>
+          <div id="input-hint" class="training-desc" style="margin-top: 4px;">Each input is sent with 4 pulses in a row. Click an input to send only that one.</div>
+          <div id="mnist-preview" class="mnist-preview-card" style="display: none;">
+            <canvas id="mnist-digit-canvas" class="mnist-preview-canvas" width="84" height="84"></canvas>
+            <div class="mnist-preview-info">
+              <div class="mnist-preview-digit-title">Entering: <span id="mnist-preview-digit">0</span></div>
+              <div class="mnist-preview-badge">28×28 → 7×7 → 49 beams</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Routing designer (Custom Routing demo): drag inputs to outputs, then Train -->
+        <div id="routing-card" class="metric-card" style="display: none;">
+          <div class="card-header-row">
+            <span class="card-title">ROUTING DESIGNER</span>
+            <span class="routing-sizes">
+              <button class="routing-n" data-n="4">4</button>
+              <button class="routing-n" data-n="6">6</button>
+              <button class="routing-n" data-n="8">8</button>
+            </span>
+          </div>
+          <canvas id="routing-canvas" class="routing-canvas"></canvas>
+          <div id="routing-help" class="training-desc">
+            Drag from an input (left) to an output (right); click a link to remove it. An input with several links splits its power equally. Two inputs sharing one output can each get at most ~50% (passive, linear optics). Then press Train.
+          </div>
+          <button id="btn-routing-clear" class="btn-subtle" style="margin-top: 6px;">Clear links</button>
+        </div>
+
+        <!-- Training (trainable demos) -->
+        <div id="training-card" class="metric-card training-card" style="display: none;">
+          <div class="card-header-row">
+            <span class="card-title">INVERSE DESIGN</span>
+            <span id="train-status-badge" class="badge-status">Ready</span>
+          </div>
+          <div id="train-desc" class="training-desc"></div>
+          <div class="train-action-row" style="margin-top: 10px;">
+            <button id="btn-train" class="btn-action btn-train" title="Optimize the index map and show it morphing">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+              </svg>
+              <span>Train</span>
+            </button>
+          </div>
+          <div class="progress-bar" style="margin-top: 8px;">
+            <div id="train-progress-fill" class="progress-fill" style="width: 0%"></div>
+          </div>
+          <div class="train-metrics-grid" style="margin-top: 10px;">
+            <div class="metric-stat-box">
+              <span class="stat-lbl">Step</span>
+              <span id="train-step-val" class="stat-num">--</span>
+            </div>
+            <div class="metric-stat-box">
+              <span id="train-acc-lbl" class="stat-lbl">Batch Acc</span>
+              <span id="train-acc-val" class="stat-num">--%</span>
+            </div>
+            <div class="metric-stat-box">
+              <span id="train-test-lbl" class="stat-lbl">Test Acc</span>
+              <span id="train-test-val" class="stat-num accent">--%</span>
+            </div>
+          </div>
+        </div>
+        <!-- What arrives at the output: detector readout for the pulse at the output facet -->
+        <div id="output-card" class="metric-card">
+          <div class="mnist-header">
+            <span id="output-title">Output</span>
+            <span id="output-route" class="task-route"></span>
+          </div>
+          <div id="output-bars" class="mnist-bins"></div>
+          <div id="matrix-section" class="task-matrices" style="display: none; margin-top: 10px;">
+            <div>
+              <div class="matrix-label">Target</div>
+              <canvas id="task-target-matrix" class="matrix-canvas"></canvas>
+            </div>
+            <div>
+              <div class="matrix-label">Simulated</div>
+              <canvas id="task-sim-matrix" class="matrix-canvas"></canvas>
+            </div>
+          </div>
+          <div id="output-note" class="training-desc" style="margin-top: 6px;"></div>
+        </div>
+      </aside>
+    </main>
+
+    <!-- Footer Status Bar -->
+    <footer class="status-bar">
+      <div class="status-left">
+        <span class="status-indicator online"></span>
+        <span id="status-text">Connected to PyTorch BPM Engine</span>
+      </div>
+      <div class="status-right">
+        <span class="touch-hint">Pick a demo above; trainable demos design their refractive index live</span>
+      </div>
+    </footer>
+  </div>
+
+  <script type="module" src="js/app.js?v=4"></script>
 </body>
 </html>

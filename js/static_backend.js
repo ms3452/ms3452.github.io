@@ -1,0 +1,152 @@
+/**
+ * Static stand-in for the WebSocket backend (GitHub Pages build, no Python).
+ *
+ * Replays results precomputed by tools/build_static_site.py with the real BPM: for each demo
+ * a state JSON plus 8-bit PNGs (one intensity map per input, the index map), and for
+ * trainable demos a recorded training run (index-map keyframes, metrics, trained result).
+ * It calls the same callbacks with the same messages as WaveguideWSClient, so the app does
+ * not need to know which backend it talks to.
+ */
+
+/** Decode an 8-bit grayscale PNG into a Uint8Array of its pixel values (row-major). */
+async function loadGray(url) {
+  const blob = await (await fetch(url)).blob();
+  const bmp = await createImageBitmap(blob, { colorSpaceConversion: 'none', premultiplyAlpha: 'none' });
+  const canvas = document.createElement('canvas');
+  canvas.width = bmp.width;
+  canvas.height = bmp.height;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(bmp, 0, 0);
+  const rgba = ctx.getImageData(0, 0, bmp.width, bmp.height).data;
+  const out = new Uint8Array(bmp.width * bmp.height);
+  for (let i = 0; i < out.length; i++) out[i] = rgba[4 * i];
+  return out;
+}
+
+export class StaticBackend {
+  constructor(options = {}, base = 'data/') {
+    this.onState = options.onState || (() => {});
+    this.onIntensityBuffer = options.onIntensityBuffer || (() => {});
+    this.onDeltaNBuffer = options.onDeltaNBuffer || (() => {});
+    this.onStatusChange = options.onStatusChange || (() => {});
+    this.onTrainResult = options.onTrainResult || (() => {});
+    this.base = base;
+    this.cache = new Map(); // url -> promise (JSON or Uint8Array)
+    this.current = null; // {key, entry, untrained: {state, intensity, dn}}
+    this.playing = false;
+    this.requestId = 0; // newer requests win over slower older ones
+    this.init();
+  }
+
+  async init() {
+    try {
+      this.manifest = await this._json('manifest.json');
+      this.onStatusChange(true, 'Static demo · precomputed BPM simulations');
+      await this.sendDemo(this.manifest.default);
+    } catch (err) {
+      console.error(err);
+      this.onStatusChange(false, 'Could not load the precomputed data (serve this folder over http)');
+    }
+  }
+
+  _json(rel) {
+    const url = this.base + rel;
+    if (!this.cache.has(url)) this.cache.set(url, fetch(url).then((r) => r.json()));
+    return this.cache.get(url);
+  }
+
+  _gray(rel) {
+    const url = this.base + rel;
+    if (!this.cache.has(url)) this.cache.set(url, loadGray(url));
+    return this.cache.get(url);
+  }
+
+  /** Load a state JSON and its images. */
+  async _loadState(rel) {
+    const state = await this._json(rel);
+    const [intensity, dn] = await Promise.all([this._gray(state.files.intensity), this._gray(state.files.dn)]);
+    return { state, intensity, dn };
+  }
+
+  _emit(state, intensity, dn, extra = {}) {
+    this.onState({ ...state, ...extra });
+    this.onIntensityBuffer(intensity);
+    this.onDeltaNBuffer(dn);
+  }
+
+  async _show(entry, key) {
+    const id = ++this.requestId;
+    const loaded = await this._loadState(entry.state);
+    if (id !== this.requestId) return; // a newer request arrived meanwhile
+    this.current = { key, entry, untrained: loaded };
+    this._emit(loaded.state, loaded.intensity, loaded.dn, { training: false, train_update: false });
+    if (entry.train) {
+      // Prefetch the recorded training so Train starts without a pause
+      this._json(entry.train).then((t) => this._gray(t.file));
+      this._loadState(entry.trained).catch(() => {});
+    }
+  }
+
+  async sendDemo(name) {
+    if (this.playing || !this.manifest) return;
+    const entry = this.manifest.demos[name] || this.manifest.demos[this.manifest.default];
+    if (name === 'custom') {
+      const perm = this.customPerm || entry.default_perm;
+      await this._show(this.manifest.custom[perm], 'custom');
+    } else {
+      await this._show(entry, name);
+    }
+  }
+
+  /** Routing designer (static build): only one-to-one 4x4 routings were precomputed. */
+  async sendRouting(n, connections) {
+    if (this.playing || n !== 4) return;
+    const perm = [null, null, null, null];
+    connections.forEach(([i, o]) => {
+      perm[i] = o;
+    });
+    const key = perm.join('');
+    if (!this.manifest.custom[key]) return; // not a permutation
+    this.customPerm = key;
+    await this._show(this.manifest.custom[key], 'custom');
+  }
+
+  /** Replay the recorded training: index-map keyframes, then the trained result. */
+  async sendTrain() {
+    const cur = this.current;
+    if (this.playing || !cur || !cur.entry.train) return;
+    this.playing = true;
+    const id = ++this.requestId;
+    try {
+      const run = await this._json(cur.entry.train);
+      const [frames, trained] = await Promise.all([this._gray(run.file), this._loadState(cur.entry.trained)]);
+      const u = cur.untrained;
+      const frameSize = u.dn.length;
+      const total = run.metrics[run.metrics.length - 1].total;
+      // Start from the untrained map (also when training again)
+      this._emit(u.state, u.intensity, u.dn, {
+        training: true,
+        train_update: true,
+        train_metrics: { step: 0, total, done: false },
+      });
+      for (let f = 0; f < run.frames; f++) {
+        await new Promise((r) => setTimeout(r, this.manifest.frame_ms));
+        if (id !== this.requestId) return;
+        const last = f === run.frames - 1;
+        const dn = frames.subarray(f * frameSize, (f + 1) * frameSize);
+        if (last) {
+          this._emit(trained.state, trained.intensity, trained.dn, { training: false, train_update: true });
+        } else {
+          this._emit(u.state, u.intensity, dn, {
+            training: true,
+            train_update: true,
+            train_metrics: run.metrics[f],
+          });
+        }
+      }
+      this.onTrainResult(trained.state.train_metrics);
+    } finally {
+      this.playing = false;
+    }
+  }
+}
