@@ -369,10 +369,17 @@ class WaveguideApp {
     const badge = document.getElementById('train-status-badge');
     badge.textContent = training ? 'Training...' : (metrics && metrics.done ? 'Trained' : 'Ready');
     badge.classList.toggle('training', training);
-    document.getElementById('btn-train').disabled = training;
+    document.getElementById('btn-train').disabled = training || !this._canTrain();
     document.getElementById('demo-select').disabled = training;
     document.getElementById('routing-canvas').style.pointerEvents = training ? 'none' : '';
     this.renderer.setIndexView(training);
+  }
+
+  /** Static build: a custom routing can only be trained once all four inputs are linked. */
+  _canTrain() {
+    const d = this.demo;
+    if (!STATIC || !d || d.key !== 'custom') return true;
+    return (d.links || []).length === 4;
   }
 
   _updateTrainingMetrics(metrics) {
@@ -454,10 +461,10 @@ class WaveguideApp {
     if (STATIC) {
       // Only the 24 one-to-one 4x4 routings were precomputed
       document.querySelector('.routing-sizes').style.display = 'none';
-      document.getElementById('btn-routing-clear').style.display = 'none';
       document.getElementById('routing-help').textContent =
-        'Drag an input (left) onto an output (right). Each input goes to exactly one output; the input that ' +
-        'had that output takes over the old one. Then press Train to replay the precomputed inverse design.';
+        'Drag an input (left) onto an output (right); each input goes to exactly one output and each output ' +
+        'takes one input. With all four linked, dragging swaps two routes. Clear removes all links. ' +
+        'Once all four inputs are linked, press Train to replay the precomputed inverse design.';
     }
 
     document.querySelectorAll('.routing-n').forEach((b) => {
@@ -500,14 +507,20 @@ class WaveguideApp {
         if (to && to.side !== drag.from.side) {
           const [i, o] = drag.from.side === 'in' ? [drag.from.idx, to.idx] : [to.idx, drag.from.idx];
           if (STATIC) {
-            // Keep a permutation: i takes output o, whoever had o gets i's old output
-            const perm = Array.from({ length: this.routingN }, (_, k) => k);
-            this.routingLinks.forEach(([a, b]) => (perm[a] = b));
-            const j = perm.indexOf(o);
-            if (j !== i) {
-              perm[j] = perm[i];
-              perm[i] = o;
-              send(perm.map((b, a) => [a, b]));
+            if (this.routingLinks.length === this.routingN) {
+              // Complete routing: i takes output o, whoever had o gets i's old output
+              const perm = Array.from({ length: this.routingN }, (_, k) => k);
+              this.routingLinks.forEach(([a, b]) => (perm[a] = b));
+              const j = perm.indexOf(o);
+              if (j !== i) {
+                perm[j] = perm[i];
+                perm[i] = o;
+                send(perm.map((b, a) => [a, b]));
+              }
+            } else {
+              // Building a routing after Clear: stay one-to-one by replacing links on i or o
+              const links = this.routingLinks.filter(([a, b]) => a !== i && b !== o);
+              send([...links, [i, o]]);
             }
           } else if (!this.routingLinks.some(([a, b]) => a === i && b === o)) {
             send([...this.routingLinks, [i, o]]);

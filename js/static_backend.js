@@ -91,14 +91,18 @@ export class StaticBackend {
     if (this.playing || !this.manifest) return;
     const entry = this.manifest.demos[name] || this.manifest.demos[this.manifest.default];
     if (name === 'custom') {
-      const perm = this.customPerm || entry.default_perm;
+      const perm = this.customPerm || entry.default_perm;  // after Clear: back to the default
       await this._show(this.manifest.custom[perm], 'custom');
     } else {
       await this._show(entry, name);
     }
   }
 
-  /** Routing designer (static build): only one-to-one 4x4 routings were precomputed. */
+  /**
+   * Routing designer (static build): only the 24 one-to-one 4x4 routings were precomputed.
+   * A complete routing shows its recorded run; an incomplete one (after Clear, while the user
+   * is still linking) shows the untrained device with the partial target and cannot be trained.
+   */
   async sendRouting(n, connections) {
     if (this.playing || n !== 4) return;
     const perm = [null, null, null, null];
@@ -106,9 +110,37 @@ export class StaticBackend {
       perm[i] = o;
     });
     const key = perm.join('');
-    if (!this.manifest.custom[key]) return; // not a permutation
-    this.customPerm = key;
-    await this._show(this.manifest.custom[key], 'custom');
+    if (this.manifest.custom[key]) {
+      this.customPerm = key;
+      await this._show(this.manifest.custom[key], 'custom');
+      return;
+    }
+    await this._showPartial(connections);
+  }
+
+  async _showPartial(links) {
+    const id = ++this.requestId;
+    // Every custom routing starts from the same untrained device; take any recorded one and
+    // swap in the partial target. Its target_out rows are the output-mode profiles.
+    const base = await this._loadState(this.manifest.custom[this.manifest.demos.custom.default_perm].state);
+    if (id !== this.requestId) return;
+    const d = base.state.demo;
+    const profiles = [];
+    d.links.forEach(([i, o]) => (profiles[o] = d.target_out[i]));
+    const zeros = profiles[0].map(() => 0);
+    const target = [0, 1, 2, 3].map((o) => [0, 1, 2, 3].map((i) => (links.some(([a, b]) => a === i && b === o) ? 1 : 0)));
+    const targetOut = [0, 1, 2, 3].map((i) => {
+      const link = links.find(([a]) => a === i);
+      return link ? profiles[link[1]] : zeros;
+    });
+    const state = {
+      ...base.state,
+      train_metrics: null,
+      demo: { ...d, links, target, target_out: targetOut, fidelity: null, transmission: null },
+    };
+    this.customPerm = null;
+    this.current = { key: 'custom', entry: { state: null }, untrained: { ...base, state } };
+    this._emit(state, base.intensity, base.dn, { training: false, train_update: false });
   }
 
   /** Replay the recorded training: index-map keyframes, then the trained result. */
