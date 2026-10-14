@@ -946,3 +946,65 @@ body {
   color: var(--text-muted);
   font-style: italic;
 }
+
+/* ================= 3D View ================= */
+.btn-action.active {
+  border-color: var(--accent-cyan);
+  background: rgba(0, 242, 254, 0.15);
+  color: var(--accent-cyan);
+}
+
+.view3d {
+  position: absolute;
+  inset: 34px 0 0 0; /* below the viewport header */
+  background: var(--bg-base);
+  overflow: hidden;
+  z-index: 5;
+}
+
+.view3d[hidden] {
+  display: none;
+}
+
+.view3d > canvas {
+  display: block;
+  touch-action: none;
+}
+
+.view3d-labels {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+}
+
+.label3d {
+  font: 600 11px var(--font-main);
+  color: var(--text-primary);
+  background: rgba(15, 21, 35, 0.75);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  padding: 3px 7px;
+  white-space: nowrap;
+}
+
+.view3d-hint {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  background: rgba(15, 21, 35, 0.85);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  padding: 5px 8px 5px 10px;
+  z-index: 1;
+}
+
+.label3d.small {
+  font-size: 10px;
+  padding: 1px 5px;
+}

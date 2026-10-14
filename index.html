@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>2D Waveguide Interactive Studio | Optical Beam Propagation</title>
-  <link rel="stylesheet" href="css/style.css?v=4">
+  <link rel="stylesheet" href="css/style.css?v=12">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='5' fill='%2300c6ff'/%3E%3Cpath d='M2 12h5l3-9 4 18 3-9h5' fill='none' stroke='white' stroke-width='2.2'/%3E%3C/svg%3E">
   <!-- Google Fonts for sleek scientific UI -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -63,6 +63,9 @@
       </div>
 
       <div class="toolbar-actions">
+        <button id="btn-view" class="btn-action" title="Show the 2D simulation view">
+          <span>2D View</span>
+        </button>
         <button id="btn-pulse" class="btn-action" title="Toggle between pulsed and continuous-wave light">
           <span id="btn-pulse-label">Light: Pulsed</span>
         </button>
@@ -103,6 +106,14 @@
           </div>
           <div class="facet-strip facet-out">
             <canvas id="canvas-output-plot"></canvas>
+          </div>
+        </div>
+
+        <!-- 3D setup view (Three.js); the 2D canvas keeps rendering underneath as its chip texture -->
+        <div id="view3d" class="view3d">
+          <div class="view3d-hint">
+            <span>Drag: rotate · Scroll / pinch: zoom</span>
+            <button id="btn-3d-reset" class="btn-subtle">Reset view</button>
           </div>
         </div>
       </section>
@@ -211,6 +222,15 @@
     </footer>
   </div>
 
-  <script type="module" src="js/app.js?v=4"></script>
+  <!-- Three.js for the 3D view (loaded only when the view is first opened) -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+    }
+  }
+  </script>
+  <script type="module" src="js/app.js?v=12"></script>
 </body>
 </html>

@@ -5,10 +5,10 @@
  */
 
 // ?v= busts copies that browsers cached before the server sent Cache-Control: no-cache
-import { WebGLIntensityRenderer } from './webgl_renderer.js?v=4';
-import { ProfilePlotter } from './profile_plots.js?v=4';
-import { WaveguideWSClient } from './ws_client.js?v=4';
-import { StaticBackend } from './static_backend.js?v=4';
+import { WebGLIntensityRenderer } from './webgl_renderer.js?v=12';
+import { ProfilePlotter } from './profile_plots.js?v=12';
+import { WaveguideWSClient } from './ws_client.js?v=12';
+import { StaticBackend } from './static_backend.js?v=12';
 
 // The GitHub Pages build (<html data-backend="static">) replays precomputed results instead of
 // talking to the Python server; the routing designer is then limited to 4x4 one-to-one routing
@@ -77,6 +77,30 @@ class WaveguideApp {
       this.renderer.setPulsed(!this.renderer.pulsed);
       document.getElementById('btn-pulse-label').textContent = this.renderer.pulsed ? 'Light: Pulsed' : 'Light: CW';
     });
+
+    // 3D setup view (the default). Three.js is loaded on demand; if it cannot load (e.g.
+    // offline) the app falls back to the 2D view, which never depends on it.
+    this.scene3d = null;
+    const view3d = document.getElementById('view3d');
+    const btnView = document.getElementById('btn-view');
+    const showView = async (show3d) => {
+      if (show3d && !this.scene3d) {
+        try {
+          const { Scene3D } = await import('./scene3d.js?v=12');
+          view3d.hidden = false;
+          this.scene3d = new Scene3D(view3d, this.glCanvas);
+        } catch (err) {
+          console.error('3D view could not be loaded', err);
+          show3d = false;
+        }
+      }
+      view3d.hidden = !show3d;
+      btnView.querySelector('span').textContent = show3d ? '2D View' : '3D View';
+      btnView.title = show3d ? 'Show the 2D simulation view' : 'Show the 3D setup: projector, lens, chip and fibers';
+    };
+    btnView.addEventListener('click', () => showView(view3d.hidden));
+    showView(true);
+    document.getElementById('btn-3d-reset').addEventListener('click', () => this.scene3d && this.scene3d.resetView());
 
     document.getElementById('btn-fullscreen').addEventListener('click', () => {
       if (!document.fullscreenElement) {
@@ -446,6 +470,8 @@ class WaveguideApp {
       this.renderer.update(dt);
       this._updateFacets();
       this.renderer.render();
+      // Same frame as the 2D draw, so the 3D chip texture reads a complete canvas
+      if (this.scene3d && !document.getElementById('view3d').hidden) this.scene3d.render(this);
       requestAnimationFrame(frame);
     };
     requestAnimationFrame(frame);

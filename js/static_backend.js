@@ -10,7 +10,7 @@
 
 /** Decode an 8-bit grayscale PNG into a Uint8Array of its pixel values (row-major). */
 async function loadGray(url) {
-  const blob = await (await fetch(url)).blob();
+  const blob = await (await fetch(url, { cache: 'no-cache' })).blob();
   const bmp = await createImageBitmap(blob, { colorSpaceConversion: 'none', premultiplyAlpha: 'none' });
   const canvas = document.createElement('canvas');
   canvas.width = bmp.width;
@@ -51,7 +51,7 @@ export class StaticBackend {
 
   _json(rel) {
     const url = this.base + rel;
-    if (!this.cache.has(url)) this.cache.set(url, fetch(url).then((r) => r.json()));
+    if (!this.cache.has(url)) this.cache.set(url, fetch(url, { cache: 'no-cache' }).then((r) => r.json())); // revalidate: data changes on rebuild
     return this.cache.get(url);
   }
 
