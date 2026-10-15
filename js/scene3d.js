@@ -25,13 +25,22 @@ const CHIP_T = 0.35; // substrate thickness
 const CHIP_TOP = 0.0; // y of the waveguide layer
 const LENS_Y = 4.2;
 const PROJECTOR_Y = 7.6;
-const LIGHT_COLOR = new THREE.Color('#00f2fe');
-const PROJECTOR_COLOR = new THREE.Color('#9fb4ff');
+// Colors of the 3D scene per 2D palette (palette select): the guided light (fibers, light
+// sources, bar glow), the projector light that writes the index (green for the palettes that
+// show the index in green), the MNIST bars and the winning bar
+const BLUE_PROJECTOR = '#9fb4ff';
+const GREEN_PROJECTOR = '#4ade80';
+const PALETTES = {
+  cyan_gold: { light: '#00f2fe', projector: BLUE_PROJECTOR, bar: '#0891b2', winner: '#d97706', winnerGlow: '#f59e0b' },
+  inferno: { light: '#fb8b24', projector: BLUE_PROJECTOR, bar: '#9a3412', winner: '#fde047', winnerGlow: '#fef08a' },
+  viridis: { light: '#35b779', projector: BLUE_PROJECTOR, bar: '#21918c', winner: '#fde725', winnerGlow: '#fde725' },
+  green_laser: { light: '#39ff6a', projector: BLUE_PROJECTOR, bar: '#15803d', winner: '#d9f99d', winnerGlow: '#bef264' },
+  green_index_red_light: { light: '#ff2a2a', projector: GREEN_PROJECTOR, bar: '#991b1b', winner: '#fde047', winnerGlow: '#facc15' },
+  green_index_thermal_light: { light: '#ff7a1a', projector: GREEN_PROJECTOR, bar: '#9d174d', winner: '#fde047', winnerGlow: '#fef08a' },
+};
 const FIBER_GAIN = 2.6; // emissive intensity for unit power (all of one input's light)
 const FIBER_FLOOR = 0.03; // dark fibers stay faintly visible
 const TABLE_TOP = -1.75;
-const BAR_COLOR = new THREE.Color('#0891b2');
-const BAR_WINNER_COLOR = new THREE.Color('#d97706');
 const BAR_HEIGHT = 10.0; // MNIST detector bars: height for all of the detected light in one bin
 // The camera orbits the center of the chip's top face (the chip is centered on the origin)
 const TARGET_HOME = new THREE.Vector3(0, CHIP_TOP, 0);
@@ -45,6 +54,9 @@ const CAMERA_HOME = new THREE.Vector3()
 export class Scene3D {
   constructor(container, sourceCanvas) {
     this.container = container;
+    this.palette = {};
+    this.projectorMaterials = []; // aperture + projected beam, recolored with the palette
+    this._setPaletteColors('cyan_gold');
 
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -103,6 +115,24 @@ export class Scene3D {
 
     this._resize();
     if (window.ResizeObserver) new ResizeObserver(() => this._resize()).observe(container);
+  }
+
+  /** Recolor the light, projector and MNIST bars to match the 2D palette `name`. */
+  setPalette(name) {
+    this._setPaletteColors(name);
+    for (const m of this.projectorMaterials) m.color.copy(this.palette.projector);
+    for (const f of [...this.inputFibers, ...this.outputFibers]) f.core.material.emissive.copy(this.palette.light);
+    // Light sources and bars are recolored every frame in _updatePorts
+  }
+
+  _setPaletteColors(name) {
+    const p = PALETTES[name] || PALETTES.cyan_gold;
+    for (const k of Object.keys(p)) this.palette[k] = new THREE.Color(p[k]);
+  }
+
+  _projectorMaterial(material) {
+    this.projectorMaterials.push(material);
+    return material;
   }
 
   resetView() {
@@ -174,7 +204,7 @@ export class Scene3D {
     barrel.position.set(0, PROJECTOR_Y - 0.4, 0);
     const aperture = new THREE.Mesh(
       new THREE.CircleGeometry(0.36, 40),
-      new THREE.MeshBasicMaterial({ color: PROJECTOR_COLOR, toneMapped: false }),
+      this._projectorMaterial(new THREE.MeshBasicMaterial({ color: this.palette.projector, toneMapped: false })),
     );
     aperture.rotation.x = Math.PI / 2;
     aperture.position.set(0, PROJECTOR_Y - 0.81, 0);
@@ -231,10 +261,10 @@ export class Scene3D {
     ctx.fillRect(0, 0, 4, 128);
     const alphaMap = new THREE.CanvasTexture(fade);
 
-    const beamMaterial = new THREE.MeshBasicMaterial({
-      color: PROJECTOR_COLOR, transparent: true, opacity: 0.22, alphaMap,
+    const beamMaterial = this._projectorMaterial(new THREE.MeshBasicMaterial({
+      color: this.palette.projector, transparent: true, opacity: 0.22, alphaMap,
       blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false,
-    });
+    }));
     // Square frustum: 4-sided open cylinder, turned so its faces are axis-aligned
     const frustum = (yTop, yBottom, topHalf, bottomHalfX, bottomHalfZ) => {
       const s = Math.SQRT2;
@@ -369,7 +399,7 @@ export class Scene3D {
     const core = new THREE.Mesh(
       sweepGeometry(curve, coreProfile, 160),
       new THREE.MeshStandardMaterial({
-        color: '#000000', emissive: LIGHT_COLOR, emissiveIntensity: FIBER_FLOOR, side: THREE.DoubleSide,
+        color: '#000000', emissive: this.palette.light, emissiveIntensity: FIBER_FLOOR, side: THREE.DoubleSide,
       }),
     );
     const jacket = new THREE.Mesh(
@@ -505,7 +535,8 @@ export class Scene3D {
           new THREE.BoxGeometry(0.4, 1, 0.4),
           // Lit and shaded like the other hardware, with a faint glow
           new THREE.MeshPhysicalMaterial({
-            color: BAR_COLOR, roughness: 0.3, metalness: 0.2, clearcoat: 0.6, emissive: LIGHT_COLOR, emissiveIntensity: 0.15,
+            color: this.palette.bar, roughness: 0.3, metalness: 0.2, clearcoat: 0.6, emissive: this.palette.light,
+            emissiveIntensity: 0.15,
           }),
         );
         bar.position.set(f.end.x + 0.5, TABLE_TOP, f.end.z);
@@ -568,7 +599,7 @@ export class Scene3D {
       const phase = Math.min(fracIn, 1 - fracIn) * r.pulsePeriodSec;
       const flash = pulsed ? Math.exp(-4 * Math.LN2 * (phase / r.pulseFwhmSec) ** 2) : 1;
       this.sources.forEach((source, k) => {
-        source.material.color.copy(LIGHT_COLOR).multiplyScalar(0.04 + 0.96 * pixels[k] * flash);
+        source.material.color.copy(this.palette.light).multiplyScalar(0.04 + 0.96 * pixels[k] * flash);
       });
     }
 
@@ -602,8 +633,8 @@ export class Scene3D {
         bar.position.y = TABLE_TOP + height / 2;
         bar.label.position.y = TABLE_TOP + height + 0.3;
         const winner = app.outLayer >= 0 && i === best;
-        bar.material.color.set(winner ? BAR_WINNER_COLOR : BAR_COLOR);
-        bar.material.emissive.set(winner ? '#f59e0b' : LIGHT_COLOR);
+        bar.material.color.copy(winner ? this.palette.winner : this.palette.bar);
+        bar.material.emissive.copy(winner ? this.palette.winnerGlow : this.palette.light);
       });
     }
   }

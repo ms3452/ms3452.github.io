@@ -5,10 +5,10 @@
  */
 
 // ?v= busts copies that browsers cached before the server sent Cache-Control: no-cache
-import { WebGLIntensityRenderer } from './webgl_renderer.js?v=12';
-import { ProfilePlotter } from './profile_plots.js?v=12';
-import { WaveguideWSClient } from './ws_client.js?v=12';
-import { StaticBackend } from './static_backend.js?v=12';
+import { WebGLIntensityRenderer } from './webgl_renderer.js?v=20261015172857';
+import { ProfilePlotter } from './profile_plots.js?v=20261015172857';
+import { WaveguideWSClient } from './ws_client.js?v=20261015172857';
+import { StaticBackend } from './static_backend.js?v=20261015172857';
 
 // The GitHub Pages build (<html data-backend="static">) replays precomputed results instead of
 // talking to the Python server; the routing designer is then limited to 4x4 one-to-one routing
@@ -71,7 +71,10 @@ class WaveguideApp {
     const colormapSelect = document.getElementById('colormap-select');
     colormapSelect.value = 'cyan_gold';
     this.renderer.setColormap('cyan_gold');
-    colormapSelect.addEventListener('change', (e) => this.renderer.setColormap(e.target.value));
+    colormapSelect.addEventListener('change', (e) => {
+      this.renderer.setColormap(e.target.value);
+      if (this.scene3d) this.scene3d.setPalette(e.target.value); // the 3D view follows the palette
+    });
 
     document.getElementById('btn-pulse').addEventListener('click', () => {
       this.renderer.setPulsed(!this.renderer.pulsed);
@@ -86,9 +89,10 @@ class WaveguideApp {
     const showView = async (show3d) => {
       if (show3d && !this.scene3d) {
         try {
-          const { Scene3D } = await import('./scene3d.js?v=12');
+          const { Scene3D } = await import('./scene3d.js?v=20261015172857');
           view3d.hidden = false;
           this.scene3d = new Scene3D(view3d, this.glCanvas);
+          this.scene3d.setPalette(document.getElementById('colormap-select').value);
         } catch (err) {
           console.error('3D view could not be loaded', err);
           show3d = false;
@@ -110,7 +114,7 @@ class WaveguideApp {
     });
     // Leaving the browser's full screen (Esc, F11, swipe) also restores the panels
     document.addEventListener('fullscreenchange', () => {
-      if (!document.fullscreenElement) document.body.classList.remove('fullscreen-mode');
+      if (!document.fullscreenElement) this._setFullscreenMode(false);
     });
 
     // Training: one click trains to completion; the server streams the index map as it morphs
@@ -153,6 +157,7 @@ class WaveguideApp {
 
   _setFullscreenMode(on) {
     document.body.classList.toggle('fullscreen-mode', on);
+    document.getElementById('btn-exit-fullscreen').hidden = !on;
     // The browser part is best effort (iframes or iOS may refuse); the panels hide regardless
     if (on && !document.fullscreenElement && document.documentElement.requestFullscreen) {
       document.documentElement.requestFullscreen().catch(() => {});
