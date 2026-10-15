@@ -660,6 +660,13 @@ export class Scene3D {
       }
       this._updatePorts(app);
     }
+    // The 2D canvas changes size with the layout (full screen, window resize). A WebGL2
+    // texture keeps the size of its first upload, so re-uploading a resized canvas fails
+    // (INVALID_VALUE) and the chip freezes: drop the old GPU texture to allocate a new one.
+    const src = this.chipTexture.image;
+    const size = `${src.width}x${src.height}`;
+    if (this.chipTextureSize && size !== this.chipTextureSize) this.chipTexture.dispose();
+    this.chipTextureSize = size;
     this.chipTexture.needsUpdate = true;
     this.controls.update();
     this.renderer.render(this.scene, this.camera);

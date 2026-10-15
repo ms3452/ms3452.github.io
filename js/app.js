@@ -5,10 +5,10 @@
  */
 
 // ?v= busts copies that browsers cached before the server sent Cache-Control: no-cache
-import { WebGLIntensityRenderer } from './webgl_renderer.js?v=20261015172857';
-import { ProfilePlotter } from './profile_plots.js?v=20261015172857';
-import { WaveguideWSClient } from './ws_client.js?v=20261015172857';
-import { StaticBackend } from './static_backend.js?v=20261015172857';
+import { WebGLIntensityRenderer } from './webgl_renderer.js?v=20261015175546';
+import { ProfilePlotter } from './profile_plots.js?v=20261015175546';
+import { WaveguideWSClient } from './ws_client.js?v=20261015175546';
+import { StaticBackend } from './static_backend.js?v=20261015175546';
 
 // The GitHub Pages build (<html data-backend="static">) replays precomputed results instead of
 // talking to the Python server; the routing designer is then limited to 4x4 one-to-one routing
@@ -89,7 +89,7 @@ class WaveguideApp {
     const showView = async (show3d) => {
       if (show3d && !this.scene3d) {
         try {
-          const { Scene3D } = await import('./scene3d.js?v=20261015172857');
+          const { Scene3D } = await import('./scene3d.js?v=20261015175546');
           view3d.hidden = false;
           this.scene3d = new Scene3D(view3d, this.glCanvas);
           this.scene3d.setPalette(document.getElementById('colormap-select').value);
