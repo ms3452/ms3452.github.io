@@ -102,12 +102,15 @@ class WaveguideApp {
     showView(true);
     document.getElementById('btn-3d-reset').addEventListener('click', () => this.scene3d && this.scene3d.resetView());
 
-    document.getElementById('btn-fullscreen').addEventListener('click', () => {
-      if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen().catch(() => {});
-      } else {
-        document.exitFullscreen().catch(() => {});
-      }
+    // Full screen: browser full screen with the toolbar and side panel hidden
+    document.getElementById('btn-fullscreen').addEventListener('click', () => this._setFullscreenMode(true));
+    document.getElementById('btn-exit-fullscreen').addEventListener('click', () => this._setFullscreenMode(false));
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && document.body.classList.contains('fullscreen-mode')) this._setFullscreenMode(false);
+    });
+    // Leaving the browser's full screen (Esc, F11, swipe) also restores the panels
+    document.addEventListener('fullscreenchange', () => {
+      if (!document.fullscreenElement) document.body.classList.remove('fullscreen-mode');
     });
 
     // Training: one click trains to completion; the server streams the index map as it morphs
@@ -146,6 +149,16 @@ class WaveguideApp {
       ? 'Each input is sent with 4 pulses in a row. Click an input to send only that one.'
       : `Manual: every new pulse carries input ${layer + 1}. Click it again or Auto-cycle to resume.`;
     this._facetKey = null;
+  }
+
+  _setFullscreenMode(on) {
+    document.body.classList.toggle('fullscreen-mode', on);
+    // The browser part is best effort (iframes or iOS may refuse); the panels hide regardless
+    if (on && !document.fullscreenElement && document.documentElement.requestFullscreen) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    } else if (!on && document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    }
   }
 
   // ------------------------------------------------------------------ server state
