@@ -783,6 +783,11 @@ body {
   margin-bottom: 3px;
 }
 
+.matrix-canvas.confusion-canvas {
+  width: 78%;
+  margin: 4px auto 0;
+}
+
 .matrix-canvas {
   width: 100%;
   aspect-ratio: 1 / 1;

@@ -195,6 +195,11 @@
             <span id="output-route" class="task-route"></span>
           </div>
           <div id="output-bars" class="mnist-bins"></div>
+          <div id="confusion-section" style="display: none; margin-top: 10px;">
+            <div class="matrix-label">Confusion matrix: rows = true digit (0 at top), columns = predicted digit (0 at left)</div>
+            <canvas id="confusion-matrix" class="matrix-canvas confusion-canvas"></canvas>
+            <div id="confusion-caption" class="training-desc"></div>
+          </div>
           <div id="matrix-section" class="task-matrices" style="display: none; margin-top: 10px;">
             <div>
               <div class="matrix-label">Target</div>

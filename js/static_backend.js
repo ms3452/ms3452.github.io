@@ -82,7 +82,10 @@ export class StaticBackend {
     this._emit(loaded.state, loaded.intensity, loaded.dn, { training: false, train_update: false });
     if (entry.train) {
       // Prefetch the recorded training so Train starts without a pause
-      this._json(entry.train).then((t) => this._gray(t.file));
+      this._json(entry.train).then((t) => {
+        this._gray(t.file);
+        (t.light || []).forEach((rel) => this._gray(rel));
+      });
       this._loadState(entry.trained).catch(() => {});
     }
   }
@@ -143,7 +146,30 @@ export class StaticBackend {
     this._emit(state, base.intensity, base.dn, { training: false, train_update: false });
   }
 
-  /** Replay the recorded training: index-map keyframes, then the trained result. */
+  /**
+   * State shown at keyframe f of a recorded run: the untrained state with that step's output
+   * (profiles, detector powers -> transmission matrix, scores, MNIST confusion matrix).
+   */
+  _frameState(u, run, f) {
+    const fs = run.states && run.states[f];
+    if (!fs) return { ...u.state, train_metrics: run.metrics[f] }; // data recorded before per-step output
+    const d = u.state.demo;
+    return {
+      ...u.state,
+      max_intensity: fs.max_intensity,
+      train_metrics: run.metrics[f],
+      demo: {
+        ...d,
+        intensity_out: fs.intensity_out,
+        fidelity: fs.fidelity,
+        transmission: fs.transmission,
+        confusion: fs.confusion,
+        detector: d.detector ? { ...d.detector, powers: fs.powers } : null,
+      },
+    };
+  }
+
+  /** Replay the recorded training: index-map and light keyframes, then the trained result. */
   async sendTrain() {
     const cur = this.current;
     if (this.playing || !cur || !cur.entry.train) return;
@@ -151,7 +177,11 @@ export class StaticBackend {
     const id = ++this.requestId;
     try {
       const run = await this._json(cur.entry.train);
-      const [frames, trained] = await Promise.all([this._gray(run.file), this._loadState(cur.entry.trained)]);
+      const [frames, trained, light] = await Promise.all([
+        this._gray(run.file),
+        this._loadState(cur.entry.trained),
+        Promise.all((run.light || []).map((rel) => this._gray(rel))),
+      ]);
       const u = cur.untrained;
       const frameSize = u.dn.length;
       const total = run.metrics[run.metrics.length - 1].total;
@@ -169,10 +199,9 @@ export class StaticBackend {
         if (last) {
           this._emit(trained.state, trained.intensity, trained.dn, { training: false, train_update: true });
         } else {
-          this._emit(u.state, u.intensity, dn, {
+          this._emit(this._frameState(u, run, f), light[f] || u.intensity, dn, {
             training: true,
             train_update: true,
-            train_metrics: run.metrics[f],
           });
         }
       }

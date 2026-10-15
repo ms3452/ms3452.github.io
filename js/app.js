@@ -195,6 +195,7 @@ class WaveguideApp {
     };
     show('output-card', !!d.detector);
     show('matrix-section', !!d.target);
+    show('confusion-section', d.key === 'mnist');
     show('routing-card', d.key === 'custom');
     show('training-card', !!d.trainable);
     show('mnist-preview', d.key === 'mnist');
@@ -268,6 +269,12 @@ class WaveguideApp {
 
     this._drawOutputReadout();
     this._drawDetectorBins();
+    if (d.confusion) {
+      // Rows: true digit, columns: predicted; the digit now at the output is outlined
+      this._drawMatrix(document.getElementById('confusion-matrix'), d.confusion.matrix, -1, outL);
+      document.getElementById('confusion-caption').textContent =
+        `Test accuracy ${d.confusion.accuracy.toFixed(1)}% on ${d.confusion.samples.toLocaleString()} test images.`;
+    }
     if (d.target) {
       this._drawMatrix(document.getElementById('task-target-matrix'), d.target, outL);
       const P = d.detector.powers;
@@ -413,7 +420,11 @@ class WaveguideApp {
     document.getElementById('train-step-val').textContent = m.step != null ? `${m.step}/${m.total}` : '--';
     // Routing demos report fidelity and transmission (live values when not training)
     const a = routing ? (m.fidelity != null ? m.fidelity : d.fidelity) : m.accuracy;
-    const b = routing ? (m.transmission != null ? m.transmission : d.transmission) : m.test_accuracy;
+    // MNIST: the confusion matrix's test accuracy follows the training step by step
+    const confAcc = d && d.confusion ? d.confusion.accuracy : null;
+    const b = routing
+      ? (m.transmission != null ? m.transmission : d.transmission)
+      : (m.test_accuracy != null ? m.test_accuracy : confAcc);
     document.getElementById('train-acc-val').textContent = a != null ? `${a.toFixed(routing ? 1 : 0)}%` : '--%';
     document.getElementById('train-test-val').textContent = b != null ? `${b.toFixed(1)}%` : '--%';
     document.getElementById('train-progress-fill').style.width = m.step != null ? `${(100 * m.step) / m.total}%` : '0%';
@@ -655,7 +666,7 @@ class WaveguideApp {
     }
   }
 
-  _drawMatrix(canvas, M, col) {
+  _drawMatrix(canvas, M, col, row = -1) {
     if (!canvas) return;
     const w = canvas.clientWidth;
     if (canvas.width !== w || canvas.height !== w) {
@@ -686,6 +697,11 @@ class WaveguideApp {
       ctx.strokeStyle = '#facc15';
       ctx.lineWidth = 2;
       ctx.strokeRect(col * c + 1, 1, c - 2, w - 2);
+    }
+    if (row >= 0) {
+      ctx.strokeStyle = '#facc15';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(1, row * c + 1, w - 2, c - 2);
     }
   }
 
