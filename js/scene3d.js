@@ -33,11 +33,13 @@ const TABLE_TOP = -1.75;
 const BAR_COLOR = new THREE.Color('#0891b2');
 const BAR_WINNER_COLOR = new THREE.Color('#d97706');
 const BAR_HEIGHT = 10.0; // MNIST detector bars: height for all of the detected light in one bin
-const TARGET_HOME = new THREE.Vector3(1.0, 2.6, 0);
-// Camera 20 deg above the table (70 deg from vertical); only the azimuth and distance change
-const CAMERA_POLAR = THREE.MathUtils.degToRad(70);
+// The camera orbits the center of the chip's top face (the chip is centered on the origin)
+const TARGET_HOME = new THREE.Vector3(0, CHIP_TOP, 0);
+// Camera 15 deg above the table (75 deg from vertical); only the azimuth and distance change.
+// The distance keeps the projector above the chip in view.
+const CAMERA_POLAR = THREE.MathUtils.degToRad(75);
 const CAMERA_HOME = new THREE.Vector3()
-  .setFromSphericalCoords(23.0, CAMERA_POLAR, Math.atan2(-7.5, 19.0))
+  .setFromSphericalCoords(31.0, CAMERA_POLAR, Math.atan2(-7.5, 19.0))
   .add(TARGET_HOME);
 
 export class Scene3D {
